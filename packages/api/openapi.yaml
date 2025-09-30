@@ -1,0 +1,262 @@
+openapi: 3.1.0
+info:
+  title: FocusFlow API
+  version: 0.1.0
+servers:
+  - url: http://localhost:3333
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: API status
+  /tasks:
+    get:
+      summary: List tasks
+      parameters:
+        - in: query
+          name: space
+          required: false
+          schema:
+            type: string
+            enum: [work, life]
+      responses:
+        '200':
+          description: Task collection
+    post:
+      summary: Create task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskPayload'
+      responses:
+        '201':
+          description: Created task
+  /tasks/{id}/complete:
+    patch:
+      summary: Complete a task
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteTaskPayload'
+      responses:
+        '200':
+          description: Updated task
+  /focus/sessions:
+    get:
+      summary: Recent focus sessions
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Focus session list
+    post:
+      summary: Record a focus session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FocusSession'
+      responses:
+        '201':
+          description: Focus session created
+  /focus/summaries/{userId}:
+    get:
+      summary: Daily focus summary
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: date
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Daily summary with merkle root
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyFocusSummary'
+  /stats/user/{userId}/overview:
+    get:
+      summary: Focus and task statistics
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Aggregated stats payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsOverview'
+components:
+  schemas:
+    TaskPayload:
+      type: object
+      required: [title, space, ownerId]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        due:
+          type: string
+          format: date-time
+        estimateMinutes:
+          type: integer
+        priority:
+          type: string
+          enum: [low, medium, high]
+          default: medium
+        tags:
+          type: array
+          items:
+            type: string
+        space:
+          type: string
+          enum: [work, life]
+        status:
+          type: string
+          enum: [backlog, in_progress, completed, archived]
+          default: backlog
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        ownerId:
+          type: string
+          format: uuid
+        subtasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubtaskInput'
+    SubtaskInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        due:
+          type: string
+          format: date-time
+        isCompleted:
+          type: boolean
+    CompleteTaskPayload:
+      type: object
+      required: [ownerId]
+      properties:
+        ownerId:
+          type: string
+          format: uuid
+        completedAt:
+          type: string
+          format: date-time
+    FocusSession:
+      type: object
+      required: [userId, start, end, interruptions, deviceId, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          nullable: true
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        interruptions:
+          type: integer
+        deviceId:
+          type: string
+        status:
+          type: string
+          enum: [completed, interrupted, timeout]
+        durationMinutes:
+          type: integer
+    DailyFocusSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        merkleRoot:
+          type: string
+        chainEnabled:
+          type: boolean
+        chainTxHash:
+          type: string
+          nullable: true
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FocusSession'
+    StatsOverview:
+      type: object
+      required: [userId, week, month, consecutiveDays, lastSevenDays]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        week:
+          type: object
+          properties:
+            focusMinutes:
+              type: integer
+            completedTasks:
+              type: integer
+        month:
+          type: object
+          properties:
+            focusMinutes:
+              type: integer
+            completedTasks:
+              type: integer
+        consecutiveDays:
+          type: integer
+        lastSevenDays:
+          type: array
+          items:
+            type: object
+            required: [date, focusMinutes]
+            properties:
+              date:
+                type: string
+              focusMinutes:
+                type: integer
