@@ -1,0 +1,19 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: focusflow
+      POSTGRES_PASSWORD: focusflow
+      POSTGRES_DB: focusflow
+    ports:
+      - '5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    command: redis-server --save 60 1 --loglevel warning
+volumes:
+  db-data:
