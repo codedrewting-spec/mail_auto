@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskSpace {
+  WORK
+  LIFE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  BACKLOG
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum FocusStatus {
+  COMPLETED
+  INTERRUPTED
+  TIMEOUT
+}
+
+enum PointsReason {
+  FOCUS_COMPLETED
+  TASK_COMPLETED
+}
+
+enum PointsSourceType {
+  FOCUS_SESSION
+  TASK
+}
+
+enum BadgeType {
+  SEVEN_DAY_STREAK
+}
+
+model User {
+  id             String              @id @default(uuid())
+  email          String              @unique
+  displayName    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  streakCurrent  Int                 @default(0)
+  streakLongest  Int                 @default(0)
+  projects       Project[]
+  tasks          Task[]
+  focusSessions  FocusSession[]
+  focusSummaries DailyFocusSummary[]
+  points         PointsLedger[]
+  badges         Badge[]
+  sharedLists    SharedList[]        @relation("OwnerSharedLists")
+}
+
+model Project {
+  id              String     @id @default(uuid())
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  title           String
+  description     String?
+  space           TaskSpace
+  defaultCalendar String?
+  ownerId         String
+  owner           User       @relation(fields: [ownerId], references: [id])
+  tasks           Task[]
+}
+
+model Task {
+  id              String        @id @default(uuid())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  title           String
+  description     String?
+  dueAt           DateTime?
+  estimateMinutes Int?
+  priority        TaskPriority  @default(MEDIUM)
+  tags            String[]      @default([])
+  space           TaskSpace
+  status          TaskStatus    @default(BACKLOG)
+  completedAt     DateTime?
+  projectId       String?
+  project         Project?      @relation(fields: [projectId], references: [id])
+  ownerId         String
+  owner           User          @relation(fields: [ownerId], references: [id])
+  subtasks        Subtask[]
+  focusSessions   FocusSession[]
+}
+
+model Subtask {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  title       String
+  dueAt       DateTime?
+  isCompleted Boolean  @default(false)
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model FocusSession {
+  id              String            @id @default(uuid())
+  createdAt       DateTime          @default(now())
+  start           DateTime
+  end             DateTime
+  interruptions   Int               @default(0)
+  deviceId        String
+  status          FocusStatus
+  durationMinutes Int
+  taskId          String?
+  task            Task?             @relation(fields: [taskId], references: [id])
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  summaryId       String?
+  summary         DailyFocusSummary @relation(fields: [summaryId], references: [id])
+
+  @@index([userId, start])
+}
+
+model DailyFocusSummary {
+  id           String          @id @default(uuid())
+  createdAt    DateTime        @default(now())
+  date         DateTime
+  merkleRoot   String
+  chainEnabled Boolean         @default(false)
+  chainTxHash  String?
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  sessions     FocusSession[]
+  badges       Badge[]
+
+  @@unique([userId, date])
+}
+
+model PointsLedger {
+  id         String           @id @default(uuid())
+  createdAt  DateTime         @default(now())
+  points     Int
+  reason     PointsReason
+  sourceType PointsSourceType
+  sourceId   String
+  userId     String
+  user       User             @relation(fields: [userId], references: [id])
+
+  @@unique([sourceType, sourceId])
+}
+
+model Badge {
+  id           String             @id @default(uuid())
+  createdAt    DateTime           @default(now())
+  awardedAt    DateTime           @default(now())
+  badgeType    BadgeType
+  periodRoot   String
+  chainEnabled Boolean            @default(false)
+  chainTxHash  String?
+  userId       String
+  user         User               @relation(fields: [userId], references: [id])
+  summaryId    String?
+  summary      DailyFocusSummary? @relation(fields: [summaryId], references: [id])
+}
+
+model SharedList {
+  id          String     @id @default(uuid())
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  title       String
+  space       TaskSpace  @default(LIFE)
+  ownerId     String
+  owner       User       @relation("OwnerSharedLists", fields: [ownerId], references: [id])
+  sharedWith  String[]   @default([])
+  items       SharedListItem[]
+}
+
+model SharedListItem {
+  id            String      @id @default(uuid())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  title         String
+  notes         String?
+  isCompleted   Boolean     @default(false)
+  assigneeEmail String?
+  listId        String
+  list          SharedList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+}
+
+model SharedTemplate {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  slug        String   @unique
+  title       String
+  description String?
+  locale      String   @default("en")
+  items       Json
+}
