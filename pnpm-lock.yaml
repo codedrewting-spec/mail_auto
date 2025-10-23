@@ -7,3 +7,13 @@ settings:
 importers:
 
   .: {}
+
+  packages/api: {}
+
+  packages/contracts: {}
+
+  packages/types: {}
+
+  packages/ui: {}
+
+  packages/web: {}

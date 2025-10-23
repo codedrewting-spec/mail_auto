@@ -1,5 +1,8 @@
 {
-  "name": "mail_auto",
+  "name": "focusflow-monorepo",
+  "private": true,
   "version": "1.0.0",
-  "private": true
+  "scripts": {
+    "dev": "pnpm --filter @focusflow/web dev"
+  }
 }
